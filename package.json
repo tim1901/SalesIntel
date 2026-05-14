@@ -1,0 +1,24 @@
+{
+  "name": "bd-agent",
+  "version": "1.0.0",
+  "description": "B2B Sales Intelligence Agent with AI-powered research and executive targeting",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.3",
+    "lucide-react": "^0.407.0",
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.1"
+  }
+}
