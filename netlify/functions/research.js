@@ -8,13 +8,9 @@ export const handler = async (event) => {
   const { company } = JSON.parse(event.body);
 
   try {
-    const [companyIntel, jobPostings, industryTrends, socialSignals, execResearch, executiveContacts] = 
+    const [combinedResearch, executiveContacts] = 
       await Promise.all([
-        runResearch(`Research ${company}: Find their website, company size, industry, leadership, recent news. Return as JSON.`),
-        runResearch(`Find ${company} job postings. What roles are they hiring? Return as JSON.`),
-        runResearch(`Find industry trends relevant to ${company}'s sector. Market shifts, regulations. Return as JSON.`),
-        runResearch(`Search social media about ${company}. What are people saying? Complaints, praise? Return as JSON.`),
-        runResearch(`Research top executives at ${company}. What are they talking about? LinkedIn, podcasts, talks? Return as JSON.`),
+        runResearch(`Comprehensive research on ${company}: Find their website, company size, industry, leadership, recent news, job postings and hiring signals, industry trends and market shifts, and what top executives are saying publicly. Identify pain points and opportunities. Return as detailed JSON with all findings.`),
         extractExecutiveContacts(company)
       ]);
 
@@ -22,11 +18,11 @@ export const handler = async (event) => {
       statusCode: 200,
       body: JSON.stringify({
         company,
-        companyIntel,
-        jobPostings,
-        industryTrends,
-        socialSignals,
-        execResearch,
+        companyIntel: combinedResearch,
+        jobPostings: combinedResearch,
+        industryTrends: combinedResearch,
+        socialSignals: combinedResearch,
+        execResearch: combinedResearch,
         executiveContacts,
       }),
     };
@@ -66,10 +62,7 @@ async function runResearch(query) {
 async function extractExecutiveContacts(company) {
   try {
     const searchPrompts = [
-      `Find email addresses and LinkedIn profiles for top executives at ${company}. CEO, CTO, VP Engineering, VP Product, VP Sales. Return as JSON.`,
-      `Find contact information for decision makers at ${company}. Head of Engineering, VP of Technology. Return as JSON.`,
-      `Search ${company} team member profiles on LinkedIn. Find CEO, founders, top executives. Return as JSON array.`,
-      `Find emails for ${company} executives using common patterns. Return as JSON.`,
+      `Find email addresses and LinkedIn profiles for top executives at ${company}. Include CEO, CTO, VP Engineering, VP Product, VP Sales, VP Marketing, Head of Engineering, COO, CFO. Return as JSON array with fields: name, title, email, linkedin, company.`,
     ];
 
     const contacts = [];
