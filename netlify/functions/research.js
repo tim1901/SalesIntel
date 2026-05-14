@@ -44,7 +44,7 @@ async function runResearch(query) {
     const response = await client.messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: 1000,
-      tools: [{ type: "web_search_20260209" }],
+      tools: [{ type: "web_search_20260209", name: "web_search" }],
       messages: [{ role: "user", content: query }],
     });
 
@@ -71,7 +71,7 @@ async function extractExecutiveContacts(company) {
         const response = await client.messages.create({
           model: "claude-sonnet-4-20250514",
           max_tokens: 1200,
-          tools: [{ type: "web_search_20260209" }],
+          tools: [{ type: "web_search_20260209", name: "web_search" }],
           messages: [{ role: "user", content: prompt }],
         });
 
