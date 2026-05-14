@@ -8,9 +8,10 @@ export const handler = async (event) => {
   const { company } = JSON.parse(event.body);
 
   try {
-    const [combinedResearch, executiveContacts] = 
+    // Run just ONE simple research call + contact extraction
+    const [basicResearch, executiveContacts] = 
       await Promise.all([
-        runResearch(`Comprehensive research on ${company}: Find their website, company size, industry, leadership, recent news, job postings and hiring signals, industry trends and market shifts, and what top executives are saying publicly. Identify pain points and opportunities. Return as detailed JSON with all findings.`),
+        runResearch(`Quick research on ${company}: What is the company? Who are the key executives and their titles? What are they hiring for? Return as JSON.`),
         extractExecutiveContacts(company)
       ]);
 
@@ -18,11 +19,11 @@ export const handler = async (event) => {
       statusCode: 200,
       body: JSON.stringify({
         company,
-        companyIntel: combinedResearch,
-        jobPostings: combinedResearch,
-        industryTrends: combinedResearch,
-        socialSignals: combinedResearch,
-        execResearch: combinedResearch,
+        companyIntel: basicResearch,
+        jobPostings: basicResearch,
+        industryTrends: basicResearch,
+        socialSignals: basicResearch,
+        execResearch: basicResearch,
         executiveContacts,
       }),
     };
@@ -39,7 +40,7 @@ async function runResearch(query) {
   try {
     const response = await client.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
+      max_tokens: 800,
       tools: [{ type: "web_search_20260209", name: "web_search", allowed_callers: ["direct"] }],
       messages: [{ role: "user", content: query }],
     });
@@ -62,7 +63,7 @@ async function runResearch(query) {
 async function extractExecutiveContacts(company) {
   try {
     const searchPrompts = [
-      `Find email addresses and LinkedIn profiles for top executives at ${company}. Include CEO, CTO, VP Engineering, VP Product, VP Sales, VP Marketing, Head of Engineering, COO, CFO. Return as JSON array with fields: name, title, email, linkedin, company.`,
+      `Find CEO, CTO, VP Engineering, VP Sales emails and LinkedIn for ${company}. Return JSON with: name, title, email, linkedin.`,
     ];
 
     const contacts = [];
@@ -71,7 +72,7 @@ async function extractExecutiveContacts(company) {
       try {
         const response = await client.messages.create({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 1200,
+          max_tokens: 800,
           tools: [{ type: "web_search_20260209", name: "web_search", allowed_callers: ["direct"] }],
           messages: [{ role: "user", content: prompt }],
         });
