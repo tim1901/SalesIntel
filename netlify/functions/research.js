@@ -8,12 +8,11 @@ export const handler = async (event) => {
   const { company } = JSON.parse(event.body);
 
   try {
-    // Run just ONE simple research call + contact extraction
-    const [basicResearch, executiveContacts] = 
-      await Promise.all([
-        runResearch(`Quick research on ${company}: What is the company? Who are the key executives and their titles? What are they hiring for? Return as JSON.`),
-        extractExecutiveContacts(company)
-      ]);
+    const basicResearch = await runResearch(`Quick research on ${company}: What is the company? Key executives and titles? Hiring for? Return JSON.`);
+    
+    await new Promise(r => setTimeout(r, 1500));
+    
+    const executiveContacts = await extractExecutiveContacts(company);
 
     return {
       statusCode: 200,
@@ -28,7 +27,7 @@ export const handler = async (event) => {
       }),
     };
   } catch (error) {
-    console.error("Research error:", error);
+    console.error("Error:", error);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message }),
@@ -40,7 +39,7 @@ async function runResearch(query) {
   try {
     const response = await client.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 800,
+      max_tokens: 600,
       tools: [{ type: "web_search_20260209", name: "web_search", allowed_callers: ["direct"] }],
       messages: [{ role: "user", content: query }],
     });
@@ -55,69 +54,54 @@ async function runResearch(query) {
     }
     return result;
   } catch (error) {
-    console.error("Research error:", error);
     return JSON.stringify({ error: error.message });
   }
 }
 
 async function extractExecutiveContacts(company) {
   try {
-    const searchPrompts = [
-      `Find CEO, CTO, VP Engineering, VP Sales emails and LinkedIn for ${company}. Return JSON with: name, title, email, linkedin.`,
-    ];
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 600,
+      tools: [{ type: "web_search_20260209", name: "web_search", allowed_callers: ["direct"] }],
+      messages: [{ role: "user", content: `Find CEO, CTO, VP Eng, VP Sales emails and LinkedIn for ${company}. Return JSON: name, title, email, linkedin.` }],
+    });
 
-    const contacts = [];
-
-    for (const prompt of searchPrompts) {
-      try {
-        const response = await client.messages.create({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 800,
-          tools: [{ type: "web_search_20260209", name: "web_search", allowed_callers: ["direct"] }],
-          messages: [{ role: "user", content: prompt }],
-        });
-
-        let text = "";
-        for (const block of response.content) {
-          if (block.type === "text") {
-            text += block.text + "\n";
-          } else if (block.type === "tool_result") {
-            text += block.content + "\n";
-          }
-        }
-
-        const jsonMatch = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-        
-        if (jsonMatch) {
-          try {
-            const parsed = JSON.parse(jsonMatch[0]);
-            if (Array.isArray(parsed)) {
-              contacts.push(...parsed);
-            } else {
-              contacts.push(parsed);
-            }
-          } catch (e) {
-            contacts.push({ raw: text });
-          }
-        }
-      } catch (error) {
-        console.error("Contact search error:", error);
+    let text = "";
+    for (const block of response.content) {
+      if (block.type === "text") {
+        text += block.text;
+      } else if (block.type === "tool_result") {
+        text += block.content;
       }
     }
 
-    const uniqueContacts = deduplicateContacts(contacts);
+    const jsonMatch = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+    const contacts = [];
+    
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (Array.isArray(parsed)) {
+          contacts.push(...parsed);
+        } else {
+          contacts.push(parsed);
+        }
+      } catch (e) {
+        contacts.push({ raw: text });
+      }
+    }
+
+    const unique = deduplicateContacts(contacts);
     
     return JSON.stringify({
-      executives: uniqueContacts,
-      total_found: uniqueContacts.length,
-      note: "Contacts found from research.",
+      executives: unique,
+      total_found: unique.length,
     });
   } catch (error) {
-    console.error("Contact extraction error:", error);
     return JSON.stringify({ 
       error: error.message,
       executives: [],
-      note: "Failed to extract contacts."
     });
   }
 }
@@ -126,29 +110,22 @@ function deduplicateContacts(contacts) {
   const seen = new Set();
   const unique = [];
 
-  for (const contact of contacts) {
-    if (!contact.name && !contact.email && !contact.linkedin) continue;
-
-    const key = `${(contact.name || "").toLowerCase()}-${(contact.email || "").toLowerCase()}-${(contact.linkedin || "").toLowerCase()}`;
-    
-    if (!seen.has(key)) {
-      seen.add(key);
-      
-      const normalized = {
-        name: contact.name || "Unknown",
-        title: contact.title || "Not specified",
-        email: contact.email || null,
-        linkedin: normalizeLinkedInUrl(contact.linkedin),
-        company: contact.company,
-        confidence: contact.confidence || "medium",
+  for (const c of contacts) {
+    if (!c.name && !c.email && !c.linkedin) continue;
+    const k = `${(c.name || "").toLowerCase()}-${(c.email || "").toLowerCase()}-${(c.linkedin || "").toLowerCase()}`;
+    if (!seen.has(k)) {
+      seen.add(k);
+      const n = {
+        name: c.name || "Unknown",
+        title: c.title || "Not specified",
+        email: c.email || null,
+        linkedin: normalizeLinkedInUrl(c.linkedin),
       };
-
-      if (normalized.email || normalized.linkedin) {
-        unique.push(normalized);
+      if (n.email || n.linkedin) {
+        unique.push(n);
       }
     }
   }
-
   return unique;
 }
 
