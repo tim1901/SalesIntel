@@ -44,11 +44,19 @@ async function runResearch(query) {
     const response = await client.messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: 1000,
-      tools: [{ type: "web_search_20260209", name: "web_search" }],
+      tools: [{ type: "web_search_20260209", name: "web_search", allowed_callers: ["direct"] }],
       messages: [{ role: "user", content: query }],
     });
 
-    return response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
+    let result = "";
+    for (const block of response.content) {
+      if (block.type === "text") {
+        result += block.text + "\n";
+      } else if (block.type === "tool_result") {
+        result += block.content + "\n";
+      }
+    }
+    return result;
   } catch (error) {
     console.error("Research error:", error);
     return JSON.stringify({ error: error.message });
@@ -71,11 +79,19 @@ async function extractExecutiveContacts(company) {
         const response = await client.messages.create({
           model: "claude-sonnet-4-20250514",
           max_tokens: 1200,
-          tools: [{ type: "web_search_20260209", name: "web_search" }],
+          tools: [{ type: "web_search_20260209", name: "web_search", allowed_callers: ["direct"] }],
           messages: [{ role: "user", content: prompt }],
         });
 
-        const text = response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
+        let text = "";
+        for (const block of response.content) {
+          if (block.type === "text") {
+            text += block.text + "\n";
+          } else if (block.type === "tool_result") {
+            text += block.content + "\n";
+          }
+        }
+
         const jsonMatch = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
         
         if (jsonMatch) {
